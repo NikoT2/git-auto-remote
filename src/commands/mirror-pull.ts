@@ -308,7 +308,7 @@ async function runOne(mirror: MirrorConfig, options: MirrorPullOptions): Promise
     sha,
     classification: classify(changedPaths(sha), pathSpec),
   }));
-  const segments = segment(classified, findEchoes(classified, 'HEAD'));
+  const segments = segment(classified, findEchoes(classified, 'HEAD', head));
 
   let applied = 0;
   let skipped = 0;

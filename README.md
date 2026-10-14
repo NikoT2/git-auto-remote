@@ -84,7 +84,7 @@ All three of `reviewPaths`, `regeneratePaths`, `syncPaths` are first-class and i
 
 A batched run of clean + out-of-scope commits is applied via a single `git format-patch ... | git am --empty=drop --3way`.
 
-An **echo** - a commit whose change the target already has, because it crossed the other way earlier - is skipped and the tracking ref advances past it. A copy keeps its original's author time, so the original is a target commit authored in the same second that changed every file the copy would apply from the same content to the same content. Without this, `git am --3way` drops the copy only while no later target commit touched its lines (a release commit followed by a version bump on the same lines would conflict).
+A commit the target already carries is skipped and the tracking ref advances past it: an **echo** (it crossed the other way earlier) or a conflict a person resolved in a merged review ref. Crossing keeps a commit's author, author time and message whatever happens to its content, so the target carries it when it has more commits with that author, time and message than the mirror has before it; a copy whose message was edited on the way is still found as a target commit authored in the same second that changed every file the copy would apply from the same content to the same content. Without this, `git am --3way` drops a commit only while the target holds its exact result: a release commit followed by a version bump on the same lines would conflict, and a merged resolution that kept other content would come back on every pull.
 
 ### Partial commit review (interactive)
 

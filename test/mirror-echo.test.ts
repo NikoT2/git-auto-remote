@@ -145,3 +145,42 @@ describe('mirror pull: a change coming back from the mirror', () => {
     expect(code).toBe(2);
   });
 });
+
+describe('mirror pull: a conflict a person resolved in the review ref', () => {
+  test('is not replayed once the resolution is merged, whatever content the person kept', async () => {
+    commit(local, 'packages/cli/a.ts', 'local\n', 'private: edit A');
+    commit(seed, 'packages/cli/a.ts', 'v2\n', 'pkg: bump A');
+    git(seed, ['push', '-q', 'origin', 'main']);
+    git(local, ['fetch', '-q', 'upstream']);
+    expect((await pull()).code).toBe(2);
+
+    // The review PR: one commit on top of the review ref keeps the target's line, then a rebase merge.
+    git(local, ['switch', '-q', '--detach', REVIEW_REF]);
+    commit(local, 'packages/cli/a.ts', 'local\n', 'private: keep A');
+    git(local, ['branch', '-f', 'private', 'HEAD']);
+    git(local, ['switch', '-q', 'private']);
+    const merged = git(local, ['rev-parse', 'HEAD']);
+
+    const { code, err } = await pull();
+    expect(err).not.toContain('conflict');
+    expect(code).toBe(0);
+    expect(err).toContain('already on private');
+    expect(git(local, ['rev-parse', 'HEAD'])).toBe(merged);
+    expect(readTrackingRef('upstream')).toBe(git(local, ['rev-parse', 'upstream/main']));
+  });
+
+  test('still applies a second mirror commit with the same author, time and message', async () => {
+    commit(seed, 'packages/cli/b.ts', 'B\n', 'pkg: add file', 1_800_000_000);
+    const first = git(seed, ['rev-parse', 'HEAD']);
+    commit(seed, 'packages/cli/c.ts', 'C\n', 'pkg: add file', 1_800_000_000);
+    git(seed, ['push', '-q', 'origin', 'main']);
+    git(local, ['fetch', '-q', 'upstream']);
+    git(local, ['am', '-q'], git(seed, ['format-patch', '-1', '--stdout', first]));
+
+    const { code, err } = await pull();
+    expect(err).not.toContain('conflict');
+    expect(code).toBe(0);
+    expect(git(local, ['show', 'HEAD:packages/cli/c.ts'])).toBe('C');
+    expect(readTrackingRef('upstream')).toBe(git(local, ['rev-parse', 'upstream/main']));
+  });
+});
